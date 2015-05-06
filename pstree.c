@@ -487,6 +487,30 @@ static int GetProcesses(void) {
     fprintf(stderr, "Problems with malloc.\n");
     exit(1);
   }
+
+#ifdef __FreeBSD__
+  /*
+   * fake a init process, the test result show that it works well both inside
+   * and outside jail. If in future it turns out that is should be done inside 
+   * jail, add check for sysctl security.jail.jailed 
+   */ 
+  P = realloc(P, (i+1) * sizeof(struct Proc));
+  if (P == NULL) {
+    fprintf(stderr, "Problems with realloc.\n");
+    exit(1);
+  }
+  memset(&P[i], 0, sizeof(*P));
+
+  memcpy(P[i].name, "root", sizeof("root"));
+  P[i].pid = 1;
+  P[i].ppid = 0;
+  P[i].pgid = 1;
+  memcpy(P[i].cmd, "/sbin/init --", sizeof("/sbin/init --"));
+
+  P[i].parent = P[i].child = P[i].sister = -1;
+  P[i].print  = FALSE;
+  i++;
+#endif
   
   while (NULL != fgets(line, MAXLINE, tn)) {
     int len, num;
@@ -595,7 +619,7 @@ void FixZombies(void) {
       P[me].pid = -1;
 #ifdef DEBUG
       if (debug) fprintf(stderr,
-			 "fixed zombie %s with ppid %d\n",
+			 "fixed zombie %s with ppid %ld\n",
 			 P[me].cmd, P[me].ppid);
 #endif
     }
